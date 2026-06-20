@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Smart WA Assistant</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="manifest" href="manifest.json">
+    <style>
+        /* Sedikit styling tambahan agar lebih nyaman di iPhone */
+        body { -webkit-tap-highlight-color: transparent; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen pb-10">
+
+    <div class="max-w-md mx-auto p-4 pt-8">
+        <div class="text-center mb-6">
+            <h1 class="text-2xl font-bold text-blue-600">Sales AI Assistant</h1>
+            <p class="text-sm text-slate-500">Auto Follow-Up Generator</p>
+        </div>
+
+        <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 mb-6">
+            <label class="block text-sm font-medium text-slate-700 mb-2">Gemini API Key</label>
+            <input type="password" id="apiKey" placeholder="Masukkan API Key Anda" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl mb-4 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+            
+            <label class="block text-sm font-medium text-slate-700 mb-2">Riwayat Chat WhatsApp</label>
+            <textarea id="chatInput" rows="6" placeholder="Paste obrolan WA di sini..." class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"></textarea>
+            
+            <button id="analyzeBtn" onclick="analyzeChat()" class="w-full mt-4 bg-blue-600 text-white font-semibold py-3 rounded-xl hover:bg-blue-700 transition duration-200 active:scale-95 flex justify-center items-center">
+                <span id="btnText">Analisis Chat</span>
+                <span id="loading" class="hidden animate-spin ml-2 text-white">⚙️</span>
+            </button>
+        </div>
+
+        <div id="resultCard" class="hidden space-y-4">
+            
+            <div class="grid grid-cols-2 gap-4">
+                <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
+                    <p class="text-xs text-slate-500 font-medium mb-1">Status Konsumen</p>
+                    <p id="statusOutput" class="font-bold text-lg text-slate-800">-</p>
+                </div>
+                <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
+                    <p class="text-xs text-slate-500 font-medium mb-1">Jadwal Follow Up</p>
+                    <p id="dateOutput" class="font-bold text-lg text-slate-800">-</p>
+                </div>
+            </div>
+
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
+                <p class="text-xs text-slate-500 font-medium mb-2">Draf Balasan AI</p>
+                <div id="draftOutput" class="text-sm text-slate-700 leading-relaxed bg-blue-50 p-4 rounded-xl">
+                    </div>
+                <button onclick="copyDraft()" class="w-full mt-3 border border-blue-600 text-blue-600 font-medium py-2 rounded-xl text-sm hover:bg-blue-50 transition active:scale-95">
+                    Salin Draf
+                </button>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        async function analyzeChat() {
+            const apiKey = document.getElementById('apiKey').value.trim();
+            const chatText = document.getElementById('chatInput').value.trim();
+            const btnText = document.getElementById('btnText');
+            const loading = document.getElementById('loading');
+            const resultCard = document.getElementById('resultCard');
+
+            if (!apiKey || !chatText) {
+                alert('API Key dan chat WA tidak boleh kosong!');
+                return;
+            }
+
+            // Ubah state tombol
+            btnText.innerText = "Menganalisis...";
+            loading.classList.remove('hidden');
+            resultCard.classList.add('hidden');
+
+            // Prompt engineering khusus untuk AI
+            const prompt = `
+            Anda adalah asisten sales profesional. Analisis riwayat chat WhatsApp berikut ini antara sales dan calon pelanggan.
+            
+            Tugas:
+            1. Tentukan status ketertarikan pelanggan (Pilih salah satu: Tertarik, Ragu-ragu, Menolak).
+            2. Tentukan tanggal yang tepat untuk mem-follow up kembali berdasarkan konteks (Gunakan format DD MMM YYYY, misal: 25 Okt 2024). Jika menolak keras, isi dengan "Tidak Perlu".
+            3. Buatkan draf teks WhatsApp balasan/follow-up otomatis yang sangat sopan, persuasif, namun tidak memaksa, sesuaikan dengan nada bicara pelanggan di chat.
+            
+            Berikan output HANYA dalam format JSON valid (tanpa markdown blok kode) dengan struktur berikut:
+            {
+                "status": "...",
+                "follow_up_date": "...",
+                "draft_reply": "..."
+            }
+            
+            Riwayat Chat:
+            "${chatText}"
+            `;
+
+            try {
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: prompt }] }]
+                    })
+                });
+
+                if (!response.ok) throw new Error('Gagal menghubungi AI. Cek API Key Anda.');
+
+                const data = await response.json();
+                let aiResponseText = data.candidates[0].content.parts[0].text;
+                
+                // Membersihkan markdown JSON jika AI menambahkannya
+                aiResponseText = aiResponseText.replace(/```json/g, '').replace(/```/g, '').trim();
+                
+                const result = JSON.parse(aiResponseText);
+
+                // Tampilkan ke UI
+                document.getElementById('statusOutput').innerText = result.status;
+                
+                // Beri warna pada status
+                const statusEl = document.getElementById('statusOutput');
+                if(result.status.toLowerCase().includes('tertarik')) statusEl.className = "font-bold text-lg text-emerald-600";
+                else if(result.status.toLowerCase().includes('ragu')) statusEl.className = "font-bold text-lg text-amber-500";
+                else statusEl.className = "font-bold text-lg text-red-500";
+
+                document.getElementById('dateOutput').innerText = result.follow_up_date;
+                // Mengubah newline menjadi <br> agar rapi di HTML
+                document.getElementById('draftOutput').innerHTML = result.draft_reply.replace(/\n/g, '<br>');
+                
+                resultCard.classList.remove('hidden');
+
+            } catch (error) {
+                alert('Terjadi kesalahan: ' + error.message);
+                console.error(error);
+            } finally {
+                // Kembalikan state tombol
+                btnText.innerText = "Analisis Chat";
+                loading.classList.add('hidden');
+            }
+        }
+
+        function copyDraft() {
+            const textToCopy = document.getElementById('draftOutput').innerText;
+            navigator.clipboard.writeText(textToCopy).then(() => {
+                alert('Draf berhasil disalin!');
+            });
+        }
+    </script>
+</body>
+</html>
