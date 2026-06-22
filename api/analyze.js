@@ -14,7 +14,7 @@ export default async function handler(req, res) {
     }
 
     const { chatText } = req.body;
-    const apiKey = process.env.GEMINI_API_KEY; // Diambil aman dari sistem Vercel
+    const apiKey = process.env.GEMINI_API_KEY; 
 
     if (!apiKey) {
         return res.status(500).json({ error: 'Server Error: API Key belum dikonfigurasi di Vercel.' });
@@ -37,7 +37,8 @@ export default async function handler(req, res) {
     `;
 
     try {
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+        // PERUBAHAN DI SINI: Mengubah v1beta menjadi v1
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
