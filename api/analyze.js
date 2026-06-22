@@ -1,5 +1,5 @@
 export default async function handler(req, res) {
-    // Pengaturan CORS agar aman
+    // Pengaturan CORS
     res.setHeader('Access-Control-Allow-Credentials', true);
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS');
@@ -17,7 +17,7 @@ export default async function handler(req, res) {
     const apiKey = process.env.GEMINI_API_KEY; 
 
     if (!apiKey) {
-        return res.status(500).json({ error: 'Server Error: API Key belum dikonfigurasi di Vercel.' });
+        return res.status(500).json({ error: 'API Key belum dikonfigurasi di Environment Variables Vercel.' });
     }
 
     if (!chatText) {
@@ -28,15 +28,15 @@ export default async function handler(req, res) {
     Anda adalah asisten sales profesional. Analisis riwayat chat WhatsApp berikut ini antara sales dan calon pelanggan.
     
     Tugas:
-    1. Tentukan status ketertarikan pelanggan: "Tertarik", "Ragu-ragu", atau "Menolak".
+    1. Tentukan status ketertarikan pelanggan (Pilih salah satu: "Asli Tertarik", "Ragu-ragu", atau "Menolak").
     2. Tentukan tanggal follow up yang pas (Format: DD MMM YYYY, misal: 25 Okt 2026). Jika menolak, isi: "Tidak Perlu".
     3. Buatkan draf balasan WhatsApp yang persuasif, sopan, natural, dan menggunakan bahasa Indonesia yang santai tapi profesional. Gunakan spasi/paragraf agar mudah dibaca.
     
-    Wajib berikan hasil analisis dalam format JSON murni seperti struktur di bawah ini tanpa modifikasi:
+    Wajib berikan hasil analisa dalam format JSON murni dengan struktur persis seperti ini:
     {
-        "status": "Isi disini",
-        "follow_up_date": "Isi disini",
-        "draft_reply": "Isi disini"
+        "status": "Isi status di sini",
+        "follow_up_date": "Isi tanggal di sini",
+        "draft_reply": "Isi draf text di sini"
     }
 
     Riwayat Chat:
@@ -44,7 +44,6 @@ export default async function handler(req, res) {
     `;
 
     try {
-        // MENGGUNAKAN GEMINI-2.0-FLASH YANG SEKARANG AKTIF DI AKUN ANDA
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -56,20 +55,26 @@ export default async function handler(req, res) {
         const data = await response.json();
 
         if (!response.ok) {
-            return res.status(response.status).json({ error: data.error?.message || 'Gagal menghubungi Gemini API' });
+            return res.status(response.status).json({ error: data.error?.message || 'Gagal tersambung ke Google AI.' });
         }
 
         let resultText = data.candidates[0].content.parts[0].text;
         
-        // Bersihkan format markdown jika AI tidak sengaja menyertakannya
+        // Pembersihan total blok teks markdown agar aman dari error parsing
         resultText = resultText.replace(/```json/gi, '').replace(/
 ```/gi, '').trim();
         
+        // Ekstraksi paksa menggunakan regex jika AI menyelipkan teks tambahan di luar kurung kurawal
+        const jsonMatch = resultText.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+            resultText = jsonMatch[0];
+        }
+
         const parsedResult = JSON.parse(resultText);
         return res.status(200).json(parsedResult);
 
     } catch (error) {
         console.error(error);
-        return res.status(500).json({ error: 'Gagal memproses format data dari AI. Silakan coba lagi.' });
+        return res.status(500).json({ error: 'AI mengirimkan format data yang salah. Silakan coba klik tombol analisis lagi.' });
     }
 }
