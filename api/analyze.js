@@ -24,13 +24,12 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'Riwayat chat kosong.' });
     }
 
-    // Prompt diperketat agar AI wajib memberikan format JSON murni
     const prompt = `
     Anda adalah asisten sales profesional. Analisis riwayat chat WhatsApp berikut ini antara sales dan calon pelanggan.
     
     Tugas:
     1. Tentukan status ketertarikan pelanggan: "Tertarik", "Ragu-ragu", atau "Menolak".
-    2. Tentukan tanggal follow up yang pas (Format: DD MMM YYYY, misal: 25 Okt 2024). Jika menolak, isi: "Tidak Perlu".
+    2. Tentukan tanggal follow up yang pas (Format: DD MMM YYYY, misal: 25 Okt 2026). Jika menolak, isi: "Tidak Perlu".
     3. Buatkan draf balasan WhatsApp yang persuasif, sopan, natural, dan menggunakan bahasa Indonesia yang santai tapi profesional. Gunakan spasi/paragraf agar mudah dibaca.
     
     Wajib berikan hasil analisis dalam format JSON murni seperti struktur di bawah ini tanpa modifikasi:
@@ -45,8 +44,8 @@ export default async function handler(req, res) {
     `;
 
     try {
-        // Kita gunakan request standar tanpa "generationConfig" agar tidak memicu error payload di Google
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+        // PERUBAHAN UTAMA: Menggunakan model terbaru gemini-2.5-flash
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -62,10 +61,10 @@ export default async function handler(req, res) {
 
         let resultText = data.candidates[0].content.parts[0].text;
         
-        // Membersihkan format markdown penulisan kode (```json ... ```) jika tidak sengaja dibuat oleh AI
-        resultText = resultText.replace(/```json/gi, '').replace(/```/gi, '').trim();
+        // Clean markdown code blocks if any
+        resultText = resultText.replace(/```json/gi, '').replace(/
+```/gi, '').trim();
         
-        // Mengubah teks bersih menjadi objek JSON formal
         const parsedResult = JSON.parse(resultText);
         return res.status(200).json(parsedResult);
 
