@@ -3,93 +3,167 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Smart WA Assistant</title>
+    <title>Sales AI Assistant</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="manifest" href="manifest.json">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
-        /* Sedikit styling tambahan agar lebih nyaman di iPhone */
-        body { -webkit-tap-highlight-color: transparent; }
+        body { -webkit-tap-highlight-color: transparent; font-family: 'Inter', sans-serif; }
+        .glass-card { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); }
+        
+        /* Animasi Toast */
+        @keyframes slideDown {
+            from { transform: translateY(-100%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        .toast-enter { animation: slideDown 0.3s ease-out forwards; }
     </style>
 </head>
-<body class="bg-slate-50 text-slate-800 min-h-screen pb-10">
+<body class="bg-gradient-to-br from-slate-100 to-blue-50 text-slate-800 min-h-screen pb-10">
 
-    <div class="max-w-md mx-auto p-4 pt-8">
-        <div class="text-center mb-6">
-            <h1 class="text-2xl font-bold text-blue-600">Sales AI Assistant</h1>
-            <p class="text-sm text-slate-500">Auto Follow-Up Generator</p>
+    <div id="toast" class="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 hidden w-max max-w-[90%]">
+        <div id="toastMsg" class="bg-slate-800 text-white px-6 py-3 rounded-full shadow-lg text-sm font-medium text-center">
+            Pesan Notifikasi
+        </div>
+    </div>
+
+    <div class="max-w-md mx-auto p-4 pt-10">
+        <div class="text-center mb-8">
+            <div class="inline-flex items-center justify-center w-12 h-12 bg-blue-600 text-white rounded-2xl mb-3 shadow-md">
+                <i class="fa-solid fa-robot text-xl"></i>
+            </div>
+            <h1 class="text-3xl font-extrabold text-slate-900 tracking-tight">Sales AI Assistant</h1>
+            <p class="text-sm text-slate-500 mt-1">Auto Follow-Up & Analisis Sentimen</p>
         </div>
 
-        <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 mb-6">
-            <label class="block text-sm font-medium text-slate-700 mb-2">Gemini API Key</label>
-            <input type="password" id="apiKey" placeholder="Masukkan API Key Anda" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl mb-4 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+        <div class="glass-card p-6 rounded-3xl shadow-sm border border-white/50 mb-6">
+            <div class="mb-5">
+                <div class="flex justify-between items-center mb-2">
+                    <label class="text-sm font-semibold text-slate-700">Gemini API Key</label>
+                    <button onclick="toggleApiKey()" class="text-xs text-blue-600 hover:text-blue-700 font-medium" id="toggleApiBtn">Tampilkan</button>
+                </div>
+                <input type="password" id="apiKey" placeholder="Masukkan API Key..." class="w-full p-3.5 bg-slate-50/50 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all">
+                <p class="text-[11px] text-slate-400 mt-1.5 flex items-center gap-1">
+                    <i class="fa-solid fa-lock text-[10px]"></i> Tersimpan aman di browser Anda.
+                </p>
+            </div>
             
-            <label class="block text-sm font-medium text-slate-700 mb-2">Riwayat Chat WhatsApp</label>
-            <textarea id="chatInput" rows="6" placeholder="Paste obrolan WA di sini..." class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"></textarea>
+            <div class="mb-5">
+                <label class="block text-sm font-semibold text-slate-700 mb-2">Riwayat Chat WhatsApp</label>
+                <textarea id="chatInput" rows="5" placeholder="Paste obrolan WA di sini..." class="w-full p-3.5 bg-slate-50/50 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none transition-all"></textarea>
+            </div>
             
-            <button id="analyzeBtn" onclick="analyzeChat()" class="w-full mt-4 bg-blue-600 text-white font-semibold py-3 rounded-xl hover:bg-blue-700 transition duration-200 active:scale-95 flex justify-center items-center">
-                <span id="btnText">Analisis Chat</span>
-                <span id="loading" class="hidden animate-spin ml-2 text-white">⚙️</span>
+            <button id="analyzeBtn" onclick="analyzeChat()" class="w-full bg-blue-600 text-white font-semibold py-3.5 rounded-2xl hover:bg-blue-700 transition duration-200 active:scale-[0.98] flex justify-center items-center gap-2 shadow-md shadow-blue-200">
+                <i class="fa-solid fa-wand-magic-sparkles" id="btnIcon"></i>
+                <span id="btnText">Analisis Chat Sekarang</span>
+                <i class="fa-solid fa-circle-notch animate-spin hidden" id="loadingIcon"></i>
             </button>
         </div>
 
         <div id="resultCard" class="hidden space-y-4">
-            
             <div class="grid grid-cols-2 gap-4">
-                <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
-                    <p class="text-xs text-slate-500 font-medium mb-1">Status Konsumen</p>
-                    <p id="statusOutput" class="font-bold text-lg text-slate-800">-</p>
-                </div>
-                <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
-                    <p class="text-xs text-slate-500 font-medium mb-1">Jadwal Follow Up</p>
-                    <p id="dateOutput" class="font-bold text-lg text-slate-800">-</p>
-                </div>
-            </div>
-
-            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
-                <p class="text-xs text-slate-500 font-medium mb-2">Draf Balasan AI</p>
-                <div id="draftOutput" class="text-sm text-slate-700 leading-relaxed bg-blue-50 p-4 rounded-xl">
+                <div class="glass-card p-5 rounded-3xl shadow-sm border border-white/50 flex flex-col justify-center items-center text-center">
+                    <div class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center mb-2">
+                        <i class="fa-solid fa-face-smile text-slate-500 text-sm"></i>
                     </div>
-                <button onclick="copyDraft()" class="w-full mt-3 border border-blue-600 text-blue-600 font-medium py-2 rounded-xl text-sm hover:bg-blue-50 transition active:scale-95">
-                    Salin Draf
-                </button>
+                    <p class="text-[11px] text-slate-500 font-semibold uppercase tracking-wider mb-1">Status</p>
+                    <p id="statusOutput" class="font-bold text-lg text-slate-800 leading-tight">-</p>
+                </div>
+                <div class="glass-card p-5 rounded-3xl shadow-sm border border-white/50 flex flex-col justify-center items-center text-center">
+                    <div class="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center mb-2">
+                        <i class="fa-solid fa-calendar-day text-blue-500 text-sm"></i>
+                    </div>
+                    <p class="text-[11px] text-slate-500 font-semibold uppercase tracking-wider mb-1">Follow Up</p>
+                    <p id="dateOutput" class="font-bold text-lg text-slate-800 leading-tight">-</p>
+                </div>
             </div>
 
+            <div class="glass-card p-5 rounded-3xl shadow-sm border border-white/50 relative group">
+                <div class="flex justify-between items-center mb-3">
+                    <p class="text-xs text-slate-500 font-semibold uppercase tracking-wider flex items-center gap-2">
+                        <i class="fa-solid fa-pen-nib"></i> Draf Balasan AI
+                    </p>
+                    <button onclick="copyDraft()" class="text-blue-600 hover:text-blue-700 p-2 rounded-lg bg-blue-50 transition active:scale-90" title="Salin Draf">
+                        <i class="fa-regular fa-copy"></i>
+                    </button>
+                </div>
+                <div id="draftOutput" class="text-sm text-slate-700 leading-relaxed bg-slate-50/50 p-4 rounded-2xl border border-slate-100">
+                    </div>
+            </div>
         </div>
     </div>
 
     <script>
+        // Saat halaman dimuat, cek apakah ada API key yang tersimpan
+        window.onload = () => {
+            const savedKey = localStorage.getItem('geminiApiKey');
+            if (savedKey) document.getElementById('apiKey').value = savedKey;
+        };
+
+        // Fungsi Custom Toast Notification
+        function showToast(message, isError = false) {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toastMsg');
+            
+            toastMsg.innerText = message;
+            toastMsg.className = isError 
+                ? "bg-red-500 text-white px-6 py-3 rounded-full shadow-lg text-sm font-medium text-center"
+                : "bg-slate-800 text-white px-6 py-3 rounded-full shadow-lg text-sm font-medium text-center";
+            
+            toast.classList.remove('hidden');
+            toast.classList.add('toast-enter');
+            
+            setTimeout(() => {
+                toast.classList.add('hidden');
+                toast.classList.remove('toast-enter');
+            }, 3000);
+        }
+
+        // Toggle Visibilitas Password API Key
+        function toggleApiKey() {
+            const input = document.getElementById('apiKey');
+            const btn = document.getElementById('toggleApiBtn');
+            if (input.type === 'password') {
+                input.type = 'text';
+                btn.innerText = 'Sembunyikan';
+            } else {
+                input.type = 'password';
+                btn.innerText = 'Tampilkan';
+            }
+        }
+
         async function analyzeChat() {
             const apiKey = document.getElementById('apiKey').value.trim();
             const chatText = document.getElementById('chatInput').value.trim();
+            const btn = document.getElementById('analyzeBtn');
             const btnText = document.getElementById('btnText');
-            const loading = document.getElementById('loading');
+            const btnIcon = document.getElementById('btnIcon');
+            const loadingIcon = document.getElementById('loadingIcon');
             const resultCard = document.getElementById('resultCard');
 
             if (!apiKey || !chatText) {
-                alert('API Key dan chat WA tidak boleh kosong!');
+                showToast('API Key dan chat WA tidak boleh kosong!', true);
                 return;
             }
 
-            // Ubah state tombol
+            // Simpan API key ke local storage agar tidak perlu input lagi nanti
+            localStorage.setItem('geminiApiKey', apiKey);
+
+            // Ubah state UI tombol menjadi loading
+            btn.disabled = true;
+            btn.classList.add('opacity-80', 'cursor-not-allowed');
             btnText.innerText = "Menganalisis...";
-            loading.classList.remove('hidden');
+            btnIcon.classList.add('hidden');
+            loadingIcon.classList.remove('hidden');
             resultCard.classList.add('hidden');
 
-            // Prompt engineering khusus untuk AI
+            // Prompt engineering yang lebih rapi
             const prompt = `
             Anda adalah asisten sales profesional. Analisis riwayat chat WhatsApp berikut ini antara sales dan calon pelanggan.
             
             Tugas:
-            1. Tentukan status ketertarikan pelanggan (Pilih salah satu: Tertarik, Ragu-ragu, Menolak).
-            2. Tentukan tanggal yang tepat untuk mem-follow up kembali berdasarkan konteks (Gunakan format DD MMM YYYY, misal: 25 Okt 2024). Jika menolak keras, isi dengan "Tidak Perlu".
-            3. Buatkan draf teks WhatsApp balasan/follow-up otomatis yang sangat sopan, persuasif, namun tidak memaksa, sesuaikan dengan nada bicara pelanggan di chat.
-            
-            Berikan output HANYA dalam format JSON valid (tanpa markdown blok kode) dengan struktur berikut:
-            {
-                "status": "...",
-                "follow_up_date": "...",
-                "draft_reply": "..."
-            }
+            1. Tentukan status ketertarikan pelanggan: "Tertarik", "Ragu-ragu", atau "Menolak".
+            2. Tentukan tanggal follow up yang pas (Format: DD MMM YYYY, misal: 25 Okt 2024). Jika menolak, isi: "Tidak Perlu".
+            3. Buatkan draf balasan WhatsApp yang persuasif, sopan, natural, dan menggunakan bahasa Indonesia yang santai tapi profesional. Gunakan spasi/paragraf agar mudah dibaca.
             
             Riwayat Chat:
             "${chatText}"
@@ -100,49 +174,67 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        contents: [{ parts: [{ text: prompt }] }]
+                        contents: [{ parts: [{ text: prompt }] }],
+                        // Ini adalah fitur penting: Memaksa API output sebagai JSON murni
+                        generationConfig: { 
+                            responseMimeType: "application/json",
+                            responseSchema: {
+                                type: "OBJECT",
+                                properties: {
+                                    status: { type: "STRING" },
+                                    follow_up_date: { type: "STRING" },
+                                    draft_reply: { type: "STRING" }
+                                },
+                                required: ["status", "follow_up_date", "draft_reply"]
+                            }
+                        }
                     })
                 });
 
-                if (!response.ok) throw new Error('Gagal menghubungi AI. Cek API Key Anda.');
+                if (!response.ok) throw new Error('API Key tidak valid atau limit tercapai.');
 
                 const data = await response.json();
-                let aiResponseText = data.candidates[0].content.parts[0].text;
-                
-                // Membersihkan markdown JSON jika AI menambahkannya
-                aiResponseText = aiResponseText.replace(/```json/g, '').replace(/```/g, '').trim();
-                
-                const result = JSON.parse(aiResponseText);
+                const resultText = data.candidates[0].content.parts[0].text;
+                const result = JSON.parse(resultText); // Langsung parse karena dijamin JSON
 
-                // Tampilkan ke UI
-                document.getElementById('statusOutput').innerText = result.status;
-                
-                // Beri warna pada status
+                // Render Hasil ke UI
                 const statusEl = document.getElementById('statusOutput');
-                if(result.status.toLowerCase().includes('tertarik')) statusEl.className = "font-bold text-lg text-emerald-600";
-                else if(result.status.toLowerCase().includes('ragu')) statusEl.className = "font-bold text-lg text-amber-500";
-                else statusEl.className = "font-bold text-lg text-red-500";
+                statusEl.innerText = result.status;
+                
+                // Pewarnaan dinamis untuk status
+                const statusText = result.status.toLowerCase();
+                if(statusText.includes('tertarik')) statusEl.className = "font-bold text-lg text-emerald-600 leading-tight";
+                else if(statusText.includes('ragu')) statusEl.className = "font-bold text-lg text-amber-500 leading-tight";
+                else statusEl.className = "font-bold text-lg text-red-500 leading-tight";
 
                 document.getElementById('dateOutput').innerText = result.follow_up_date;
-                // Mengubah newline menjadi <br> agar rapi di HTML
                 document.getElementById('draftOutput').innerHTML = result.draft_reply.replace(/\n/g, '<br>');
                 
                 resultCard.classList.remove('hidden');
+                showToast('Analisis selesai!');
 
             } catch (error) {
-                alert('Terjadi kesalahan: ' + error.message);
+                showToast('Error: ' + error.message, true);
                 console.error(error);
             } finally {
-                // Kembalikan state tombol
-                btnText.innerText = "Analisis Chat";
-                loading.classList.add('hidden');
+                // Kembalikan state UI tombol
+                btn.disabled = false;
+                btn.classList.remove('opacity-80', 'cursor-not-allowed');
+                btnText.innerText = "Analisis Chat Sekarang";
+                btnIcon.classList.remove('hidden');
+                loadingIcon.classList.add('hidden');
             }
         }
 
         function copyDraft() {
-            const textToCopy = document.getElementById('draftOutput').innerText;
+            const draftHtml = document.getElementById('draftOutput').innerHTML;
+            // Konversi kembali <br> ke newline untuk disalin ke clipboard
+            const textToCopy = draftHtml.replace(/<br\s*[\/]?>/gi, '\n');
+            
             navigator.clipboard.writeText(textToCopy).then(() => {
-                alert('Draf berhasil disalin!');
+                showToast('Draf disalin ke clipboard!');
+            }).catch(() => {
+                showToast('Gagal menyalin teks.', true);
             });
         }
     </script>
