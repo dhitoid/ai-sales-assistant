@@ -82,7 +82,7 @@
             toastMsg.innerText = message;
             toastMsg.className = isError ? "bg-red-500 text-white px-6 py-3 rounded-full shadow-lg text-sm font-medium text-center" : "bg-slate-800 text-white px-6 py-3 rounded-full shadow-lg text-sm font-medium text-center";
             toast.classList.remove('hidden'); toast.classList.add('toast-enter');
-            setTimeout(() => { toast.classList.add('hidden'); toast.classList.remove('toast-enter'); }, 3000);
+            setTimeout(() => { toast.classList.add('hidden'); toast.classList.remove('toast-enter'); }, 4000);
         }
 
         async function analyzeChat() {
@@ -106,15 +106,26 @@
             resultCard.classList.add('hidden');
 
             try {
-                // Menggunakan relative URL ke Vercel Serverless Function Anda
-                const response = await fetch('/api/analyze', {
+                // Menggunakan Absolute URL bawaan window untuk mengunci rute Safari iOS
+                const response = await fetch(window.location.origin + '/api/analyze', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ chatText })
                 });
 
-                const result = await response.json();
-                if (!response.ok) throw new Error(result.error || 'Gagal menganalisis.');
+                // PROTEKSI SAFARI: Cek apakah tipe konten yang kembali benar-benar JSON
+                const contentType = response.headers.get("content-type");
+                let result;
+                
+                if (contentType && contentType.includes("application/json")) {
+                    result = await response.json();
+                } else {
+                    throw new Error('Server mengalami gangguan (Internal Server Error). Silakan coba lagi.');
+                }
+
+                if (!response.ok) {
+                    throw new Error(result.error || 'Gagal menganalisis chat.');
+                }
 
                 const statusEl = document.getElementById('statusOutput');
                 statusEl.innerText = result.status;
